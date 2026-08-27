@@ -1,5 +1,6 @@
 package com.mall.product.service;
 
+import com.mall.common.aspect.OperationLog;
 import com.mall.product.domain.Product;
 import com.mall.product.mapper.ProductMapper;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ public class ProductServiceImpl implements ProductService{
     }
 
     @Override
+    @OperationLog("Finding specific")
     public Product getProductById(Long id){
         return productMapper.selectById(id);
     }

@@ -1,5 +1,6 @@
 package com.mall.order.service;
 
+import com.mall.common.aspect.OperationLog;
 import com.mall.order.domain.Order;
 import com.mall.order.dto.CreateOrderRequest;
 import com.mall.order.mapper.OrderMapper;
@@ -31,6 +32,7 @@ public class OrderServiceImpl implements OrderService{
     }
 
     @Override
+    @OperationLog("Creating Order")
     @Transactional(rollbackFor = Exception.class)
     public Order createOrder(CreateOrderRequest request){
         if (request.getProductId() == null) {
