@@ -1,8 +1,11 @@
 package com.mall.order.controller;
 
+import com.mall.common.result.Result;
 import com.mall.order.domain.Order;
 import com.mall.order.dto.CreateOrderRequest;
 import com.mall.order.service.OrderService;
+import jakarta.validation.Valid;
+import lombok.val;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,7 +31,8 @@ public class OrderController {
     }
 
     @PostMapping
-    public Order createOrder(@RequestBody CreateOrderRequest request){
-        return orderService.createOrder(request);
+    public Result<Order> createOrder(@Valid @RequestBody CreateOrderRequest request){
+        Order order = orderService.createOrder(request);
+        return Result.success(order);
     }
 }

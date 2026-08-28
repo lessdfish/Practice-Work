@@ -15,3 +15,9 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
+
+mall:
+  name: mall
+  version: 0.4
+  order:
+    max-quantity: 100
