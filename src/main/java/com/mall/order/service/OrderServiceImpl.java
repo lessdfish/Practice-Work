@@ -4,12 +4,15 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mall.common.aspect.OperationLog;
 import com.mall.common.exception.BusinessException;
 import com.mall.common.exception.ErrorCode;
+import com.mall.common.transaction.AfterCommitExecutor;
 import com.mall.config.properties.MallProperties;
+import com.mall.inventory.service.InventoryService;
 import com.mall.order.domain.Order;
 import com.mall.order.dto.CreateOrderRequest;
 import com.mall.order.mapper.OrderMapper;
 import com.mall.product.domain.Product;
 import com.mall.product.mapper.ProductMapper;
+import com.mall.ranking.service.ProductRankingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,11 +34,15 @@ public class OrderServiceImpl implements OrderService{
     private final OrderMapper orderMapper;
     private final ProductMapper productMapper;
     private final MallProperties mallProperties;
+    private final ProductRankingService productRankingService;
+    private final InventoryService inventoryService;
 
-    public OrderServiceImpl(OrderMapper orderMapper, ProductMapper productMapper,MallProperties mallProperties) {
+    public OrderServiceImpl(OrderMapper orderMapper, ProductMapper productMapper, MallProperties mallProperties, ProductRankingService productRankingService, InventoryService inventoryService) {
         this.orderMapper = orderMapper;
         this.productMapper = productMapper;
         this.mallProperties = mallProperties;
+        this.productRankingService = productRankingService;
+        this.inventoryService = inventoryService;
     }
 
     @Override
@@ -56,11 +63,8 @@ public class OrderServiceImpl implements OrderService{
             throw new BusinessException("Single Max Count is "+maxQuantity,ErrorCode.PARAM_ERROR);
         }
 
-        int affectedRows = productMapper.deductStock(request.getProductId(),request.getQuantity());
+        inventoryService.deductStock(request.getProductId(),request.getQuantity());
 
-        if (affectedRows == 0) {
-            throw new BusinessException(ErrorCode.STOCK_NOT_ENOUGH);
-        }
         BigDecimal amount = product.getPrice().multiply(BigDecimal.valueOf(request.getQuantity()));
 
         Order order = new Order();
@@ -74,6 +78,16 @@ public class OrderServiceImpl implements OrderService{
         if (inserted!=1) {
             throw new BusinessException(ErrorCode.ORDER_CREATE_FAILED);
         }
+        Long rankingProductId = request.getProductId();
+        Integer rankingQuantity = request.getQuantity();
+        AfterCommitExecutor.execute(()->{
+            try {
+                productRankingService.increaseOrderQuantity(rankingProductId,rankingQuantity);
+            }catch (Exception e){
+                System.err.println("Refresh Ranking Failed"+"productId="+rankingProductId+",quantity="+rankingQuantity);
+                e.printStackTrace();
+            }
+        });
         return order;
     }
 

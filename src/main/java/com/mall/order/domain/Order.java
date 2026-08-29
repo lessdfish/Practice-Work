@@ -24,6 +24,7 @@ public class Order {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long userId;
+    private Long seckillActivityId;
     private Long productId;
     private Integer quantity;
     private BigDecimal amount;

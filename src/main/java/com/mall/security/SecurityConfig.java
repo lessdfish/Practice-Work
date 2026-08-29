@@ -45,14 +45,18 @@ public class SecurityConfig {
                 .httpBasic(basic -> basic.disable())
                 .authorizeHttpRequests(
                         auth ->auth
-                                .requestMatchers("/api/auth/**")
+                                .requestMatchers("/api/auth/register",
+                                                 "/api/auth/login")
                                 .permitAll()
                                 .requestMatchers("/api/products/**")
                                 .permitAll()
                                 .requestMatchers("/api/admin/**")
-                                .hasRole("ADMIN")
-                                .requestMatchers("/api/orders/**")
+                                .hasRole("USER")
+                                .requestMatchers("/api/orders/**",
+                                                 "/api/cart/**")
                                 .authenticated()
+                                .requestMatchers("/api/rankings/products")
+                                .permitAll()
                                 .anyRequest()
                                 .authenticated()
                 )

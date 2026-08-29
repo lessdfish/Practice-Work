@@ -25,7 +25,9 @@ public enum ErrorCode{
     USER_NOT_FOUND(40410,"USER_NOT_FOUND",HttpStatus.NOT_FOUND),
     USER_DISABLED(40310,"USER_DISABLED",HttpStatus.FORBIDDEN),
     LOGIN_FAILED(40101,"Username or password error",HttpStatus.UNAUTHORIZED),
-    ORDER_NOT_FOUND(40420,"Order Not Found" ,HttpStatus.NOT_FOUND);
+    ORDER_NOT_FOUND(40420,"Order Not Found" ,HttpStatus.NOT_FOUND),
+    CART_ITEM_NOT_FOUND(40430,"CART_NOT_FOUND" ,HttpStatus.NOT_FOUND),
+    INVENTORY_NOT_FOUND(40440,"INVENTORY_NOT_FOUND" , HttpStatus.NOT_FOUND);
 
     private final int code;
     private final String message;

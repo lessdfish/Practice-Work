@@ -18,4 +18,6 @@ public interface ProductService {
     Product getProductById(Long id);
 
     List<Product> listProducts();
+
+    void updateProductStatus(Long productId,Integer status);
 }
