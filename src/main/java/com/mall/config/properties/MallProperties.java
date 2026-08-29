@@ -1,5 +1,6 @@
 package com.mall.config.properties;
 
+import io.jsonwebtoken.Jwt;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -26,6 +27,14 @@ public class MallProperties {
     @Data
     public static class Order{
         private Integer maxQuantity;
+    }
+
+    private Jwt jwt = new Jwt();
+
+    @Data
+    public static class Jwt{
+        private String secret;
+        private Long expiration;
     }
 
 

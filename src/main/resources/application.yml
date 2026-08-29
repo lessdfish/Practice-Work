@@ -21,3 +21,6 @@ mall:
   version: 0.4
   order:
     max-quantity: 100
+  jwt:
+    secret: "MallX-Development-Secret-Key-Change-Me-2026-At-Least-32-Bytes"
+    expiration: 7200000

@@ -4,12 +4,14 @@ import com.mall.common.result.Result;
 import com.mall.order.domain.Order;
 import com.mall.order.dto.CreateOrderRequest;
 import com.mall.order.service.OrderService;
+import com.mall.security.MallUserDetails;
 import jakarta.validation.Valid;
 import lombok.val;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.aspectj.weaver.ast.Or;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * ClassName:OrderController
@@ -31,8 +33,24 @@ public class OrderController {
     }
 
     @PostMapping
-    public Result<Order> createOrder(@Valid @RequestBody CreateOrderRequest request){
-        Order order = orderService.createOrder(request);
+    public Result<Order> createOrder(@AuthenticationPrincipal MallUserDetails currentUser,
+                                     @Valid @RequestBody CreateOrderRequest request){
+        Order order = orderService.createOrder(currentUser.getUserId(),request);
         return Result.success(order);
+    }
+    @GetMapping("/my")
+    public Result<List<Order>> listMyOrders(@AuthenticationPrincipal MallUserDetails currentUser){
+        return Result.success(
+                orderService.listMyOrders(currentUser.getUserId())
+        );
+    }
+
+    @GetMapping("/{id}")
+    public Result<Order> getOrder(@AuthenticationPrincipal MallUserDetails currentUser,
+                                  @PathVariable Long id){
+        return Result.success(orderService.getMyOrder(
+                currentUser.getUserId(),
+                id
+        ));
     }
 }

@@ -1,5 +1,6 @@
 package com.mall.order.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.mall.common.aspect.OperationLog;
 import com.mall.common.exception.BusinessException;
 import com.mall.common.exception.ErrorCode;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * ClassName:OrderServiceImpl
@@ -39,7 +41,7 @@ public class OrderServiceImpl implements OrderService{
     @Override
     @OperationLog("Creating Order")
     @Transactional(rollbackFor = Exception.class)
-    public Order createOrder(CreateOrderRequest request){
+    public Order createOrder(Long userId,CreateOrderRequest request){
         Product product = productMapper.selectById(request.getProductId());
         if (product == null) {
             throw new BusinessException(ErrorCode.PRODUCT_NOT_FOUND);
@@ -48,22 +50,21 @@ public class OrderServiceImpl implements OrderService{
         if (product.getStatus() !=1) {
             throw new BusinessException(ErrorCode.PRODUCT_OFF_SHELF);
         }
-
-        int affectedRows = productMapper.deductStock(request.getProductId(),request.getQuantity());
-
-        if (affectedRows == 0) {
-            throw new BusinessException(ErrorCode.STOCK_NOT_ENOUGH);
-        }
-
         Integer maxQuantity = mallProperties.getOrder().getMaxQuantity();
 
         if (request.getQuantity()> maxQuantity) {
             throw new BusinessException("Single Max Count is "+maxQuantity,ErrorCode.PARAM_ERROR);
         }
 
+        int affectedRows = productMapper.deductStock(request.getProductId(),request.getQuantity());
+
+        if (affectedRows == 0) {
+            throw new BusinessException(ErrorCode.STOCK_NOT_ENOUGH);
+        }
         BigDecimal amount = product.getPrice().multiply(BigDecimal.valueOf(request.getQuantity()));
 
         Order order = new Order();
+        order.setUserId(userId);
         order.setProductId(request.getProductId());
         order.setQuantity(request.getQuantity());
         order.setAmount(amount);
@@ -72,6 +73,34 @@ public class OrderServiceImpl implements OrderService{
 
         if (inserted!=1) {
             throw new BusinessException(ErrorCode.ORDER_CREATE_FAILED);
+        }
+        return order;
+    }
+
+    @Override
+    public List<Order> listMyOrders(Long userId) {
+        return orderMapper.selectList(
+                new LambdaQueryWrapper<Order>()
+                        .eq(
+                                Order::getUserId,
+                                userId
+                        )
+                        .orderByDesc(Order::getCreateTime)
+        );
+    }
+
+    @Override
+    public Order getMyOrder(Long userId, Long orderId) {
+        Order order = orderMapper.selectOne(
+                new LambdaQueryWrapper<Order>()
+                        .eq(Order::getId,
+                                orderId)
+                        .eq(Order::getUserId,
+                                userId)
+                        .last("LIMIT 1")
+        );
+        if (order == null) {
+            throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
         }
         return order;
     }

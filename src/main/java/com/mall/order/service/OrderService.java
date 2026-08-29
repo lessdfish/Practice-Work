@@ -3,6 +3,8 @@ package com.mall.order.service;
 import com.mall.order.domain.Order;
 import com.mall.order.dto.CreateOrderRequest;
 
+import java.util.List;
+
 /**
  * ClassName:OrderService
  * Package:com.mall.order.service
@@ -14,5 +16,9 @@ import com.mall.order.dto.CreateOrderRequest;
  *
  */
 public interface OrderService {
-    Order createOrder(CreateOrderRequest request);
+    Order createOrder(Long userId,CreateOrderRequest request);
+
+    List<Order> listMyOrders(Long userId);
+
+    Order getMyOrder(Long userId,Long orderId);
 }
