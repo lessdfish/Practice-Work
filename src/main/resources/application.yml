@@ -16,6 +16,23 @@ spring:
           port: 6379
           database: 0
           timeout: 3000ms
+  rabbitmq:
+    host: localhost
+    port: 15673
+    username: guest
+    password: guest
+    virtual-host: /
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
+        prefetch: 10
+        concurrency: 2
+        max-concurrency: 4
+        default-requeue-rejected: false
 
 mybatis-plus:
   configuration:

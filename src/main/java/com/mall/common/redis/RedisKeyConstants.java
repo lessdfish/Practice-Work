@@ -21,6 +21,8 @@ public final class RedisKeyConstants {
     public static final String SECKILL_ACTIVITY = "mall:seckill:activity:";
     public static final String SECKILL_STOCK = "mall:seckill:stock:";
     public static final String SECKILL_USERS = "mall:seckill:users:";
+    public static final String SECKILL_RESULT = "mall:seckill:result:";
+    public static final String SECKILL_OUTBOX_STREAM = "mall:seckill:outbox";
 
     public static String productDetail(Long productId){
         return PRODUCT_DETAIL + productId;
@@ -42,4 +44,5 @@ public final class RedisKeyConstants {
     public static String seckillUsers(Long activityId) {
         return SECKILL_USERS + activityId;
     }
+    public static String seckillResult(String requestId){ return SECKILL_RESULT + requestId; }
 }

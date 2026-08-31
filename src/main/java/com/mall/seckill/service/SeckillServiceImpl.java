@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mall.common.exception.BusinessException;
 import com.mall.common.exception.ErrorCode;
 import com.mall.common.redis.RedisKeyConstants;
-import com.mall.order.domain.Order;
 import com.mall.product.domain.Product;
 import com.mall.product.service.ProductService;
 import com.mall.seckill.domain.SeckillActivity;
+import com.mall.seckill.dto.SeckillSubmitResponse;
 import com.mall.seckill.mapper.SeckillActivityMapper;
+import com.mall.seckill.mq.MqPublishResult;
+import com.mall.seckill.mq.SeckillOrderMessage;
+import com.mall.seckill.mq.SeckillOrderProducer;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -19,6 +22,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * ClassName:SeckillServiceImpl
@@ -49,14 +53,12 @@ public class SeckillServiceImpl implements SeckillService{
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
     private final SeckillActivityMapper seckillActivityMapper;
-    private final SeckillOrderService seckillOrderService;
     private final ProductService productService;
 
-    public SeckillServiceImpl(StringRedisTemplate stringRedisTemplate, ObjectMapper objectMapper, SeckillActivityMapper seckillActivityMapper, SeckillOrderService seckillOrderService, ProductService productService) {
+    public SeckillServiceImpl(StringRedisTemplate stringRedisTemplate, ObjectMapper objectMapper, SeckillActivityMapper seckillActivityMapper, ProductService productService) {
         this.stringRedisTemplate = stringRedisTemplate;
         this.objectMapper = objectMapper;
         this.seckillActivityMapper = seckillActivityMapper;
-        this.seckillOrderService = seckillOrderService;
         this.productService = productService;
     }
 
@@ -107,7 +109,7 @@ public class SeckillServiceImpl implements SeckillService{
     }
 
     @Override
-    public Order seckill(Long activityId, Long userId) {
+    public SeckillSubmitResponse seckill(Long activityId, Long userId) {
         String activityKey = RedisKeyConstants.seckillActivity(activityId);
         String json = stringRedisTemplate.opsForValue().get(activityKey);
 
@@ -130,11 +132,15 @@ public class SeckillServiceImpl implements SeckillService{
         String stockKey = RedisKeyConstants.seckillStock(activityId);
         String userKey = RedisKeyConstants.seckillUsers(activityId);
 
+        String requestId = UUID.randomUUID().toString();
+        String resultKey = RedisKeyConstants.seckillResult(requestId);
+
         long startEpoch = activity.getStartTime().atZone(ZoneId.systemDefault()).toEpochSecond();
         long endEpoch = activity.getEndTime().atZone(ZoneId.systemDefault()).toEpochSecond();
 
         long expireAtEpoch = activity.getEndTime().plusDays(1).atZone(ZoneId.systemDefault()).toEpochSecond();
-        Long result = stringRedisTemplate.execute(SECKILL_SCRIPT,List.of(stockKey,userKey),String.valueOf(userId),String.valueOf(startEpoch),String.valueOf(endEpoch),String.valueOf(expireAtEpoch));
+        Long result = stringRedisTemplate.execute(SECKILL_SCRIPT,List.of(stockKey,userKey,RedisKeyConstants.SECKILL_OUTBOX_STREAM,resultKey),
+                String.valueOf(userId),String.valueOf(startEpoch),String.valueOf(endEpoch),String.valueOf(expireAtEpoch),requestId,String.valueOf(activityId));
 
         if (result == null) {
             throw new RuntimeException("Run Lua Failed");
@@ -146,22 +152,8 @@ public class SeckillServiceImpl implements SeckillService{
             case 3 -> throw new BusinessException(ErrorCode.SECKILL_ACTIVITY_NOT_PREHEATED);
             case 4 -> throw new BusinessException(ErrorCode.SECKILL_ACTIVITY_NOT_START);
             case 5 -> throw new BusinessException(ErrorCode.SECKILL__ENDED);
-            case 0 ->{/* Success */ }
+            case 0 ->{return new SeckillSubmitResponse(requestId,"QUEUED"); }
             default -> throw new RuntimeException("Not Seckill Lua value: "+ result);
-        }
-
-        try {
-            return seckillOrderService.createOrder(userId,activity);
-        }catch (BusinessException e){
-            if (e.getErrorCode() == ErrorCode.SECKILL_DUPLICATE_ORDER) {
-                throw e;
-            }
-
-            compensate(stockKey,userKey,userId);
-            throw e;
-        }catch (Exception e){
-            compensate(stockKey,userKey,userId);
-            throw e;
         }
     }
 

@@ -1,5 +1,6 @@
 package com.mall.seckill.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.mall.common.exception.BusinessException;
 import com.mall.common.exception.ErrorCode;
@@ -42,8 +43,14 @@ public class SeckillOrderServiceImpl implements SeckillOrderService{
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Order createOrder(Long userId, SeckillActivity activity) {
-        int activityUpdated = activityMapper.deductActivityStock(activity.getId());
+    public Long createOrder(Long userId, Long activityId) {
+        SeckillActivity activity = activityMapper.selectById(activityId);
+        if (activity == null) {
+            throw new BusinessException(ErrorCode.SECKILL_ACTIVITY_NOT_FOUND);
+        }
+
+        int activityUpdated = activityMapper.deductActivityStock(activityId);
+
         if (activityUpdated == 0) {
             throw new BusinessException(ErrorCode.SECKILL_SOLD_OUT);
         }
@@ -62,16 +69,11 @@ public class SeckillOrderServiceImpl implements SeckillOrderService{
 
         Order order = new Order();
         order.setUserId(userId);
-
-        order.setSeckillActivityId(activity.getId());
-
+        order.setSeckillActivityId(activityId);
         order.setProductId(activity.getProductId());
-
         // Claim: EveryOne 1 quantity
         order.setQuantity(1);
-
         order.setAmount(activity.getSeckillPrice());
-
         order.setStatus(0);
 
         try {
@@ -79,9 +81,18 @@ public class SeckillOrderServiceImpl implements SeckillOrderService{
             if(inserted != 1){
                 throw new BusinessException(ErrorCode.ORDER_CREATE_FAILED);
             }
+            return order.getId();
         }catch (DuplicateKeyException e){
             throw new BusinessException(ErrorCode.SECKILL_DUPLICATE_ORDER);
         }
-        return order;
+    }
+
+    @Override
+    public Long findExistingOrderId(Long userId, Long activityId) {
+        Order order = orderMapper.selectOne(new LambdaQueryWrapper<Order>()
+                .eq(Order::getUserId,userId)
+                .eq(Order::getSeckillActivityId,activityId)
+                .last("LIMIT 1"));
+        return order == null?null:order.getId();
     }
 }

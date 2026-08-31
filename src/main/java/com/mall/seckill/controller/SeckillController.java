@@ -2,13 +2,13 @@ package com.mall.seckill.controller;
 
 import com.mall.common.result.Result;
 import com.mall.order.domain.Order;
+import com.mall.seckill.dto.SeckillResultResponse;
+import com.mall.seckill.dto.SeckillSubmitResponse;
+import com.mall.seckill.service.SeckillResultService;
 import com.mall.seckill.service.SeckillService;
 import com.mall.security.MallUserDetails;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * ClassName:SeckillController
@@ -24,15 +24,22 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/seckill")
 public class SeckillController {
     private final SeckillService seckillService;
+    private final SeckillResultService seckillResultService;
 
-    public SeckillController(SeckillService seckillService) {
+    public SeckillController(SeckillService seckillService, SeckillResultService seckillResultService) {
         this.seckillService = seckillService;
+        this.seckillResultService = seckillResultService;
     }
 
     @PostMapping("/{activityId}")
-    public Result<Order> seckill(@PathVariable Long activityId,
-                                 @AuthenticationPrincipal MallUserDetails currentUser){
-        Order order = seckillService.seckill(activityId,currentUser.getUserId());
-        return Result.success(order);
+    public Result<SeckillSubmitResponse> seckill(@PathVariable Long activityId,
+                                                 @AuthenticationPrincipal MallUserDetails currentUser){
+        return Result.success(seckillService.seckill(activityId,currentUser.getUserId()));
+    }
+
+    @GetMapping("/results/{requestId}")
+    public Result<SeckillResultResponse> getResult(@PathVariable String requestId,
+                                                   @AuthenticationPrincipal MallUserDetails currentUser){
+        return Result.success(seckillResultService.getResult(requestId,currentUser.getUserId()));
     }
 }

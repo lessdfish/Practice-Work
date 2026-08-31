@@ -1,6 +1,7 @@
 package com.mall.seckill.service;
 
 import com.mall.order.domain.Order;
+import com.mall.seckill.dto.SeckillSubmitResponse;
 
 /**
  * ClassName:SeckillService
@@ -15,5 +16,5 @@ import com.mall.order.domain.Order;
 public interface SeckillService {
     void preheat(Long activityId);
 
-    Order seckill(Long activityId, Long userId);
+    SeckillSubmitResponse seckill(Long activityId, Long userId);
 }

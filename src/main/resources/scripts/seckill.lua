@@ -4,7 +4,7 @@
 --- DateTime: 2026/8/30 23:41
 ---
 
-local redisTime = redis.call('Time')
+local redisTime = redis.call('TIME')
 
 local now = tonumber(redisTime[1])
 
@@ -12,39 +12,51 @@ local startTime = tonumber(ARGV[2])
 
 local endTime = tonumber(ARGV[3])
 
+-- activity not begin
 if now < startTime then
     return 4
 end
 
+-- activity already end
 if now >= endTime then
     return 5
 end
 
 local stock = redis.call('GET',KEYS[1])
 
+-- not preheat
 if not stock then
     return 3
 end
 
+-- sold out
 if tonumber(stock) <= 0 then
     return 1
 end
 
+-- one person one sale
 local purchased = redis.call('SISMEMBER',KEYS[2],ARGV[1])
 
 if purchased == 1 then
     return 2
 end
 
+-- truly purchased
+-- decr stock
 redis.call('DECR',KEYS[1])
-
+-- write user
 redis.call('SADD',KEYS[2],ARGV[1])
+
+redis.call('XADD',KEYS[3],'*','requestId',ARGV[5],'activityId',ARGV[6],'userId',ARGV[1],'retryCount','0')
+
+redis.call('HSET',KEYS[4],'userId',ARGV[1],'activityId',ARGV[6],'status','QUEUED')
 
 local exprieAt = tonumber(ARGV[4])
 
 if exprieAt > 0 then
     redis.call('EXPIREAT',KEYS[1],exprieAt)
     redis.call('EXPIREAT',KEYS[2],exprieAt)
+    redis.call('EXPIREAT',KEYS[4],exprieAt)
 end
 
 return 0

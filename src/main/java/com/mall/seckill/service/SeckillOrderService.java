@@ -14,5 +14,7 @@ import com.mall.seckill.domain.SeckillActivity;
  *
  */
 public interface SeckillOrderService {
-    Order createOrder(Long userId, SeckillActivity seckillActivity);
+    Long createOrder(Long userId, Long activityId);
+
+    Long findExistingOrderId(Long userId,Long activityId);
 }
