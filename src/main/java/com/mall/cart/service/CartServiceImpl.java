@@ -7,6 +7,7 @@ import com.mall.common.exception.ErrorCode;
 import com.mall.common.redis.RedisKeyConstants;
 import com.mall.product.domain.Product;
 import com.mall.product.service.ProductService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -27,48 +28,46 @@ import java.util.Map;
  *
  */
 @Service
-//TODO: N+1 PROBLEM
+@RequiredArgsConstructor
 public class CartServiceImpl implements CartService{
     private static final Duration CART_TTL = Duration.ofDays(7);
 
     private final StringRedisTemplate stringRedisTemplate;
-
     private final ProductService productService;
-
-    public CartServiceImpl(StringRedisTemplate stringRedisTemplate, ProductService productService) {
-        this.stringRedisTemplate = stringRedisTemplate;
-        this.productService = productService;
-    }
 
     @Override
     public List<CartItemResponse> listItems(Long userId) {
         String key = RedisKeyConstants.cart(userId);
 
         Map<Object,Object> entries = stringRedisTemplate.opsForHash().entries(key);
+
         if (entries.isEmpty()) {
             return List.of();
         }
-        List<CartItemResponse> result = new ArrayList<>();
+        List<Long> productIds = entries.keySet().stream()
+                .map(Object::toString)
+                .map(Long::valueOf)
+                .toList();
 
-        for(Map.Entry<Object,Object> entry : entries.entrySet()){
+        Map<Long,Product> products = productService.getProductByIds(productIds);
+
+        List<CartItemResponse> result = new ArrayList<>(entries.size());
+
+        for (Map.Entry<Object,Object> entry: entries.entrySet()){
             Long productId = Long.valueOf(entry.getKey().toString());
             Integer quantity = Integer.valueOf(entry.getValue().toString());
+            Product product = products.get(productId);
 
-            Product product;
-            try {
-                product = productService.getProductById(productId);
-            }catch (BusinessException e){
+            if (product ==null){
                 continue;
             }
+
             CartItemResponse item = new CartItemResponse();
             item.setProductId(productId);
             item.setProductName(product.getName());
             item.setPrice(product.getPrice());
             item.setQuantity(quantity);
-
-            BigDecimal subtotal = product.getPrice().multiply(BigDecimal.valueOf(quantity));
-
-            item.setSubtotal(subtotal);
+            item.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(quantity)));
 
             result.add(item);
         }

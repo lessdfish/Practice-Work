@@ -2,7 +2,9 @@ package com.mall.product.service;
 
 import com.mall.product.domain.Product;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * ClassName:ProductService
@@ -15,6 +17,8 @@ import java.util.List;
  *
  */
 public interface ProductService {
+    Map<Long,Product> getProductByIds(Collection<Long> productIds);
+
     Product getProductById(Long id);
 
     List<Product> listProducts();
