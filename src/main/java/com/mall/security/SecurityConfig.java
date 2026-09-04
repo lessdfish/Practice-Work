@@ -50,15 +50,17 @@ public class SecurityConfig {
                                 .permitAll()
                                 .requestMatchers("/api/products/**")
                                 .permitAll()
-                                .requestMatchers("/api/admin/**")
-                                .hasRole("ADMIN")
+                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                                 .requestMatchers("/api/orders/**",
                                                  "/api/cart/**")
                                 .authenticated()
+                                .requestMatchers("/actuator/health").permitAll()
+                                .requestMatchers("/actuator/**").hasRole("ADMIN")
                                 .requestMatchers("/api/rankings/products")
                                 .permitAll()
                                 .anyRequest()
                                 .authenticated()
+
                 )
                 .exceptionHandling(exception ->exception
                         .authenticationEntryPoint(authenticationEntryPoint)

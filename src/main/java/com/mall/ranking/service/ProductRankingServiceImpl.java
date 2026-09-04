@@ -63,7 +63,7 @@ public class ProductRankingServiceImpl implements ProductRankingService{
             return List.of();
         }
         Set<ZSetOperations.TypedTuple<String>> tuples = stringRedisTemplate.opsForZSet().reverseRangeWithScores(
-                RedisKeyConstants.PRODUCT_ORDER_RANKING,0,limit-1L
+                RedisKeyConstants.PAID_RANKING,0,limit-1L
         );
         if (tuples == null || tuples.isEmpty()) {
             return List.of();

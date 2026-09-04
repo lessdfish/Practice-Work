@@ -1,10 +1,13 @@
 package com.mall.user.service;
 
+import com.mall.common.exception.BusinessException;
+import com.mall.common.exception.ErrorCode;
 import com.mall.security.JwtTokenProvider;
 import com.mall.security.MallUserDetails;
 import com.mall.user.dto.LoginRequest;
 import com.mall.user.dto.LoginResponse;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
@@ -31,12 +34,17 @@ public class AuthServiceImpl implements AuthService{
 
     @Override
     public LoginResponse login(LoginRequest request) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        request.getUsername(),
-                        request.getPassword()
-                )
-        );
+        Authentication authentication;
+        try {
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername(),
+                            request.getPassword()
+                    )
+            );
+        } catch (AuthenticationException e) {
+            throw new BusinessException(ErrorCode.LOGIN_FAILED);
+        }
 
         MallUserDetails userDetails = (MallUserDetails) authentication.getPrincipal();
         String token = jwtTokenProvider.generateToken(userDetails);
