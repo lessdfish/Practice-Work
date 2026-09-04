@@ -15,5 +15,6 @@ public enum SeckillRequestStatus {
     PROCESSING,
     SUCCESS,
     FAILED,
+    FAILED_COMPENSATED,
     PUBLISH_UNKNOWN
 }

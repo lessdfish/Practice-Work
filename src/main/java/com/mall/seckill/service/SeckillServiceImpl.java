@@ -13,6 +13,7 @@ import com.mall.seckill.mapper.SeckillActivityMapper;
 import com.mall.seckill.mq.MqPublishResult;
 import com.mall.seckill.mq.SeckillOrderMessage;
 import com.mall.seckill.mq.SeckillOrderProducer;
+import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -35,6 +36,7 @@ import java.util.UUID;
  *
  */
 @Service
+@RequiredArgsConstructor
 public class SeckillServiceImpl implements SeckillService{
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
     public static final DefaultRedisScript<Long> COMPENSATE_SCRIPT;
@@ -54,13 +56,6 @@ public class SeckillServiceImpl implements SeckillService{
     private final ObjectMapper objectMapper;
     private final SeckillActivityMapper seckillActivityMapper;
     private final ProductService productService;
-
-    public SeckillServiceImpl(StringRedisTemplate stringRedisTemplate, ObjectMapper objectMapper, SeckillActivityMapper seckillActivityMapper, ProductService productService) {
-        this.stringRedisTemplate = stringRedisTemplate;
-        this.objectMapper = objectMapper;
-        this.seckillActivityMapper = seckillActivityMapper;
-        this.productService = productService;
-    }
 
     @Override
     public void preheat(Long activityId) {
@@ -87,6 +82,7 @@ public class SeckillServiceImpl implements SeckillService{
         String activityKey = RedisKeyConstants.seckillActivity(activityId);
         String stockKey = RedisKeyConstants.seckillStock(activityId);
         String userKey = RedisKeyConstants.seckillUsers(activityId);
+        String outboxKey = RedisKeyConstants.seckillOutbox(activityId);
 
         LocalDateTime expireTime = activity.getEndTime().plusDays(1);
 
@@ -102,6 +98,8 @@ public class SeckillServiceImpl implements SeckillService{
 
             stringRedisTemplate.opsForValue().set(stockKey,String.valueOf(activity.getAvailableStock()),Duration.ofSeconds(ttlSeconds));
             stringRedisTemplate.delete(userKey);
+
+            stringRedisTemplate.opsForSet().add(RedisKeyConstants.SECKILL_OUTBOX_STREAM_REGISTRY,outboxKey);
         }catch (JsonProcessingException e){
             throw new RuntimeException("Seckill Redis Preheat Failed!",e);
         }
@@ -131,15 +129,16 @@ public class SeckillServiceImpl implements SeckillService{
 
         String stockKey = RedisKeyConstants.seckillStock(activityId);
         String userKey = RedisKeyConstants.seckillUsers(activityId);
+        String outboxKey = RedisKeyConstants.seckillOutbox(activityId);
 
         String requestId = UUID.randomUUID().toString();
-        String resultKey = RedisKeyConstants.seckillResult(requestId);
+        String resultKey = RedisKeyConstants.seckillResult(activityId,requestId);
 
         long startEpoch = activity.getStartTime().atZone(ZoneId.systemDefault()).toEpochSecond();
         long endEpoch = activity.getEndTime().atZone(ZoneId.systemDefault()).toEpochSecond();
 
         long expireAtEpoch = activity.getEndTime().plusDays(1).atZone(ZoneId.systemDefault()).toEpochSecond();
-        Long result = stringRedisTemplate.execute(SECKILL_SCRIPT,List.of(stockKey,userKey,RedisKeyConstants.SECKILL_OUTBOX_STREAM,resultKey),
+        Long result = stringRedisTemplate.execute(SECKILL_SCRIPT,List.of(stockKey,userKey,outboxKey,resultKey),
                 String.valueOf(userId),String.valueOf(startEpoch),String.valueOf(endEpoch),String.valueOf(expireAtEpoch),requestId,String.valueOf(activityId));
 
         if (result == null) {

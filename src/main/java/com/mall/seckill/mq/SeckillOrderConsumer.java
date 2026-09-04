@@ -5,6 +5,7 @@ import com.mall.common.exception.ErrorCode;
 import com.mall.common.mq.RabbitMqConstants;
 import com.mall.seckill.service.SeckillOrderService;
 import com.mall.seckill.service.SeckillResultService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.core.Message;
@@ -25,26 +26,21 @@ import com.rabbitmq.client.Channel;
  *
  */
 @Component
+@RequiredArgsConstructor
 public class SeckillOrderConsumer {
     public static final Logger log = LoggerFactory.getLogger(SeckillOrderConsumer.class);
     private final SeckillOrderService seckillOrderService;
     private final SeckillResultService seckillResultService;
     private final SeckillOrderProducer seckillOrderProducer;
 
-    public SeckillOrderConsumer(SeckillOrderService seckillOrderService, SeckillResultService seckillResultService, SeckillOrderProducer seckillOrderProducer) {
-        this.seckillOrderService = seckillOrderService;
-        this.seckillResultService = seckillResultService;
-        this.seckillOrderProducer = seckillOrderProducer;
-    }
-
     @RabbitListener(queues = RabbitMqConstants.SECKILL_ORDER_QUEUE)
     public void consume(SeckillOrderMessage message, Message amqpMessage, Channel channel) throws IOException {
         long deliveryTag = amqpMessage.getMessageProperties().getDeliveryTag();
-        seckillResultService.markProcessing(message.getRequestId());
+        seckillResultService.markProcessing(message.getActivityId(), message.getRequestId());
         try {
             Long orderId = seckillOrderService.createOrder(message.getUserId(), message.getActivityId());
             try {
-                seckillResultService.markSuccess(message.getRequestId(), orderId);
+                seckillResultService.markSuccess(message.getActivityId(), message.getRequestId(), orderId);
             }catch (Exception e){
                 log.error("Already Success,Update Failed,requestId={}",message.getRequestId(),e);
             }
@@ -54,7 +50,7 @@ public class SeckillOrderConsumer {
             if (e.getErrorCode() == ErrorCode.SECKILL_DUPLICATE_ORDER) {
                 Long orderId = seckillOrderService.findExistingOrderId(message.getUserId(), message.getActivityId());
                 try {
-                    seckillResultService.markSuccess(message.getRequestId(), orderId);
+                    seckillResultService.markSuccess(message.getActivityId(), message.getRequestId(), orderId);
                 }catch (Exception statusException){
                     log.error("幂等订单已存在，更新状态失败，requestId={}",message.getRequestId(),statusException);
 
@@ -62,7 +58,7 @@ public class SeckillOrderConsumer {
                 channel.basicAck(deliveryTag,false);
                 return;
             }
-            seckillResultService.markFailed(message.getRequestId(), e.getMessage());
+            seckillResultService.markFailed(message.getActivityId(), message.getRequestId(), e.getMessage());
             channel.basicNack(deliveryTag,false,false);
         }catch (Exception e){
             retryOrDLQ(message,deliveryTag,channel,e);
@@ -85,7 +81,7 @@ public class SeckillOrderConsumer {
             channel.basicNack(deliveryTag,false,true);
             return;
         }
-        seckillResultService.markFailed(message.getRequestId(), "Multi Retry Failed,Waiting System recovery");
+        seckillResultService.markFailed(message.getActivityId(),message.getRequestId(), "Multi Retry Failed,Waiting System recovery");
         channel.basicNack(deliveryTag,false,false);
         log.error("More than Max retry, Send in DLQ,requestId={}",message.getRequestId(),exception);
     }

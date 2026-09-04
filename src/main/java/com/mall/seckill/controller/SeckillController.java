@@ -37,9 +37,11 @@ public class SeckillController {
         return Result.success(seckillService.seckill(activityId,currentUser.getUserId()));
     }
 
-    @GetMapping("/results/{requestId}")
-    public Result<SeckillResultResponse> getResult(@PathVariable String requestId,
-                                                   @AuthenticationPrincipal MallUserDetails currentUser){
-        return Result.success(seckillResultService.getResult(requestId,currentUser.getUserId()));
+    @GetMapping("/{activityId}/results/{requestId}")
+    public Result<SeckillResultResponse> getResult(
+            @PathVariable Long activityId,
+            @PathVariable String requestId,
+            @AuthenticationPrincipal MallUserDetails currentUser){
+        return Result.success(seckillResultService.getResult(activityId,requestId,currentUser.getUserId()));
     }
 }

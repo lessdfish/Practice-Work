@@ -3,6 +3,7 @@ package com.mall.seckill.service;
 import com.mall.common.exception.BusinessException;
 import com.mall.common.exception.ErrorCode;
 import com.mall.common.redis.RedisKeyConstants;
+import com.mall.seckill.domain.SeckillRequestRecord;
 import com.mall.seckill.domain.SeckillRequestStatus;
 import com.mall.seckill.dto.SeckillResultResponse;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -30,72 +31,93 @@ public class SeckillResultServiceImpl implements SeckillResultService{
         this.redisTemplate = redisTemplate;
     }
 
-    @Override
-    public void createQueue(String requestId, Long activityId, Long userId) {
-        String key = RedisKeyConstants.seckillResult(requestId);
-        redisTemplate.opsForHash().putAll(key, Map.of("userId",String.valueOf(userId),
-                "activityId",String.valueOf(activityId),
-                "status", SeckillRequestStatus.QUEUED.name()));
-
-        redisTemplate.expire(key,RESULT_TTL);
+    private String key(Long activityId,String requestId){
+        return RedisKeyConstants.seckillResult(activityId,requestId);
     }
 
     @Override
-    public void markProcessing(String requestId) {
-        redisTemplate.opsForHash().put(RedisKeyConstants.seckillResult(requestId),"status",SeckillRequestStatus.PROCESSING.name());
+    public void markProcessing(Long activityId, String requestId) {
+        redisTemplate.opsForHash().put(
+                key(activityId,requestId),
+                "status",
+                SeckillRequestStatus.PROCESSING.name()
+        );
     }
 
     @Override
-    public void markSuccess(String requestId, Long orderId) {
-        String key = RedisKeyConstants.seckillResult(requestId);
-        redisTemplate.opsForHash().put(key,"status",SeckillRequestStatus.SUCCESS.name());
+    public void markSuccess(Long activityId, String requestId, Long orderId) {
+        String key = key(activityId,requestId);
 
-        if (orderId!=null) {
-            redisTemplate.opsForHash().put(key,"orderId",String.valueOf(orderId));
-        }
-
-        redisTemplate.opsForHash().put(key,"message","Seckill Success");
+        redisTemplate.opsForHash().putAll(
+                key,
+                Map.of(
+                        "status",
+                        SeckillRequestStatus.SUCCESS.name(),
+                        "orderId",
+                        String.valueOf(orderId),
+                        "message",
+                        "秒杀成功"
+                )
+        );
     }
 
     @Override
-    public void markFailed(String requestId, String message) {
-        String key = RedisKeyConstants.seckillResult(requestId);
-        redisTemplate.opsForHash().put(key,"status",SeckillRequestStatus.FAILED.name());
-        redisTemplate.opsForHash().put(key,"message",message);
+    public void markFailed(Long activityId, String requestId, String message) {
+        redisTemplate.opsForHash().putAll(
+                key(activityId,requestId),
+                Map.of(
+                        "status",
+                        SeckillRequestStatus.FAILED.name(),
+                        "message",
+                        message
+                )
+        );
     }
 
     @Override
-    public void markPublishUnknown(String requestId) {
-        redisTemplate.opsForHash().put(RedisKeyConstants.seckillResult(requestId),"status",SeckillRequestStatus.PUBLISH_UNKNOWN.name());
+    public void markPublishUnknown(Long activityId, String requestId) {
+
     }
 
     @Override
-    public SeckillResultResponse getResult(String requestId, Long userId) {
-        String key = RedisKeyConstants.seckillResult(requestId);
-        Map<Object,Object> result = redisTemplate.opsForHash().entries(key);
+    public void markFailedCompensated(Long activityId, String requestId) {
+        redisTemplate.opsForHash().put(
+                key(activityId,requestId),
+                "status",
+                SeckillRequestStatus.FAILED_COMPENSATED.name()
+        );
+    }
+
+    @Override
+    public SeckillResultResponse getResult(Long activityId, String requestId, Long userId) {
+        var result = redisTemplate.opsForHash().entries(key(activityId,requestId));
+
         if (result.isEmpty()) {
             throw new BusinessException(ErrorCode.SECKILL_RESULT_NOT_FOUND);
         }
+
         Long ownerId = Long.valueOf(result.get("userId").toString());
 
         if (!ownerId.equals(userId)) {
-            throw new BusinessException(SECKILL_RESULT_NOT_FOUND);
+            throw new BusinessException(ErrorCode.SECKILL_RESULT_NOT_FOUND);
         }
 
-        SeckillResultResponse response = new SeckillResultResponse();
+        var response = new SeckillResultResponse();
 
         response.setRequestId(requestId);
         response.setStatus(result.get("status").toString());
-        Object orderId = result.get("orderId");
-        if (orderId!=null) {
-            response.setOrderId(Long.valueOf(orderId.toString()));
+
+        if (result.get("orderId") !=null) {
+            response.setOrderId(Long.valueOf(result.get("orderId").toString()));
         }
-
-        Object message = result.get("message");
-
-        if(message!=null){
-            response.setMessage(message.toString());
+        if (result.get("message") !=null) {
+            response.setMessage(result.get("message").toString());
         }
         return response;
+    }
+
+    @Override
+    public SeckillRequestRecord getRequestRecord(Long activityId, String requestId) {
+        return null;
     }
 }

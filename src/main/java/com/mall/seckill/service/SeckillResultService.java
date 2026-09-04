@@ -1,5 +1,6 @@
 package com.mall.seckill.service;
 
+import com.mall.seckill.domain.SeckillRequestRecord;
 import com.mall.seckill.dto.SeckillResultResponse;
 
 /**
@@ -13,15 +14,19 @@ import com.mall.seckill.dto.SeckillResultResponse;
  *
  */
 public interface SeckillResultService {
-    void createQueue(String requestId,Long activityId,Long userId);
+    void markProcessing(Long activityId,String requestId);
 
-    void markProcessing(String requestId);
+    void markSuccess(Long activityId,String requestId,Long orderId);
 
-    void markSuccess(String requestId,Long orderId);
+    void markFailed(Long activityId,String requestId,String message);
 
-    void markFailed(String requestId,String message);
+    void markPublishUnknown(Long activityId,String requestId);
 
-    void markPublishUnknown(String requestId);
+    void markFailedCompensated(Long activityId,String requestId);
 
-    SeckillResultResponse getResult(String requestId,Long userId);
+    SeckillResultResponse getResult(Long activityId,String requestId,Long userId);
+
+    SeckillRequestRecord getRequestRecord(Long activityId,String requestId);
+
+
 }
