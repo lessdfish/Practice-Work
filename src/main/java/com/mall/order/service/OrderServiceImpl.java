@@ -7,16 +7,21 @@ import com.mall.common.exception.ErrorCode;
 import com.mall.common.transaction.AfterCommitExecutor;
 import com.mall.config.properties.MallProperties;
 import com.mall.inventory.service.InventoryService;
+import com.mall.order.constant.OrderConstants;
 import com.mall.order.domain.Order;
+import com.mall.order.domain.OrderStatus;
 import com.mall.order.dto.CreateOrderRequest;
 import com.mall.order.mapper.OrderMapper;
+import com.mall.order.mq.OrderTimeoutProducer;
 import com.mall.product.domain.Product;
 import com.mall.product.mapper.ProductMapper;
 import com.mall.ranking.service.ProductRankingService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -30,20 +35,14 @@ import java.util.List;
  *
  */
 @Service
+@RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService{
     private final OrderMapper orderMapper;
     private final ProductMapper productMapper;
     private final MallProperties mallProperties;
-    private final ProductRankingService productRankingService;
     private final InventoryService inventoryService;
+    private final OrderTimeoutProducer orderTimeoutProducer;
 
-    public OrderServiceImpl(OrderMapper orderMapper, ProductMapper productMapper, MallProperties mallProperties, ProductRankingService productRankingService, InventoryService inventoryService) {
-        this.orderMapper = orderMapper;
-        this.productMapper = productMapper;
-        this.mallProperties = mallProperties;
-        this.productRankingService = productRankingService;
-        this.inventoryService = inventoryService;
-    }
 
     @Override
     @OperationLog("Creating Order")
@@ -63,8 +62,6 @@ public class OrderServiceImpl implements OrderService{
             throw new BusinessException("Single Max Count is "+maxQuantity,ErrorCode.PARAM_ERROR);
         }
 
-        inventoryService.deductStock(request.getProductId(),request.getQuantity());
-
         BigDecimal amount = product.getPrice().multiply(BigDecimal.valueOf(request.getQuantity()));
 
         Order order = new Order();
@@ -72,22 +69,19 @@ public class OrderServiceImpl implements OrderService{
         order.setProductId(request.getProductId());
         order.setQuantity(request.getQuantity());
         order.setAmount(amount);
-        order.setStatus(0);
+        order.setStatus(OrderStatus.WAIT_PAY.getCode());
+        order.setExpireTime(LocalDateTime.now().plusMinutes(OrderConstants.PAYMENT_TIMEOUT_MINUTES));
         int inserted = orderMapper.insert(order);
 
         if (inserted!=1) {
             throw new BusinessException(ErrorCode.ORDER_CREATE_FAILED);
         }
-        Long rankingProductId = request.getProductId();
-        Integer rankingQuantity = request.getQuantity();
-        AfterCommitExecutor.execute(()->{
-            try {
-                productRankingService.increaseOrderQuantity(rankingProductId,rankingQuantity);
-            }catch (Exception e){
-                System.err.println("Refresh Ranking Failed"+"productId="+rankingProductId+",quantity="+rankingQuantity);
-                e.printStackTrace();
-            }
-        });
+
+        inventoryService.reserveStock(order.getId(),order.getProductId(),order.getQuantity());
+
+        Long orderId = order.getId();
+        AfterCommitExecutor.execute(()-> orderTimeoutProducer.send(orderId));
+
         return order;
     }
 

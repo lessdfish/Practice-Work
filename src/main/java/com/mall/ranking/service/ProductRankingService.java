@@ -15,7 +15,7 @@ import java.util.List;
  *
  */
 public interface ProductRankingService {
-    void increaseOrderQuantity(Long productId,Integer quantity);
+    void increasePaidQuantity(String eventId, Long productId,Integer quantity);
 
     List<ProductRankingResponse> top(int limit);
 }

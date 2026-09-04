@@ -18,10 +18,37 @@ import org.apache.ibatis.annotations.Update;
 public interface ProductInventoryMapper extends BaseMapper<ProductInventory> {
     @Update("""
             UPDATE product_inventory
-            SET available_stock = 
-                    available_stock - #{quantity}
+            SET available_stock = available_stock - #{quantity},
+                locked_stock = locked_stock + #{quantity}
             WHERE product_id = #{productId}
-             AND available_stock >= #{quantity}
+              AND available_stock >= #{quantity}
             """)
-    int deductStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
+    int reserve(
+            @Param("productId") Long productId,
+            @Param("quantity") Integer quantity
+    );
+
+    @Update("""
+            UPDATE product_inventory
+            SET locked_stock = locked_stock - #{quantity},
+                sold_stock = sold_stock + #{quantity}
+            WHERE product_id = #{productId}
+              AND locked_stock >= #{quantity}
+            """)
+    int confirm(
+            @Param("productId") Long productId,
+            @Param("quantity") Integer quantity
+    );
+
+    @Update("""
+            UPDATE product_inventory
+            SET locked_stock = locked_stock - #{quantity},
+                available_stock = available_stock + #{quantity}
+            WHERE product_id = #{productId}
+              AND locked_stock >= #{quantity}
+            """)
+    int release(
+            @Param("productId") Long productId,
+            @Param("quantity") Integer quantity
+    );
 }

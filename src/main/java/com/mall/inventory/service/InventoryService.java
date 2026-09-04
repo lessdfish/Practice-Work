@@ -15,5 +15,9 @@ import com.mall.inventory.domain.ProductInventory;
 public interface InventoryService {
     ProductInventory getByProductId(Long productId);
 
-    void deductStock(Long productId,Integer quantity);
+    void reserveStock(Long orderId,Long productId,Integer quantity);
+
+    void confirmStock(Long orderId);
+
+    void releaseStock(Long orderId);
 }

@@ -4,17 +4,24 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.mall.common.exception.BusinessException;
 import com.mall.common.exception.ErrorCode;
+import com.mall.common.transaction.AfterCommitExecutor;
 import com.mall.inventory.service.InventoryService;
+import com.mall.order.constant.OrderConstants;
 import com.mall.order.domain.Order;
+import com.mall.order.domain.OrderStatus;
 import com.mall.order.mapper.OrderMapper;
+import com.mall.order.mq.OrderTimeoutProducer;
 import com.mall.product.domain.Product;
 import com.mall.product.mapper.ProductMapper;
 import com.mall.seckill.domain.SeckillActivity;
 import com.mall.seckill.mapper.SeckillActivityMapper;
+import lombok.RequiredArgsConstructor;
 import org.aspectj.weaver.ast.Or;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
 
 /**
  * ClassName:SeckillOrderServiceImpl
@@ -27,19 +34,15 @@ import org.springframework.transaction.annotation.Transactional;
  *
  */
 @Service
+@RequiredArgsConstructor
 public class SeckillOrderServiceImpl implements SeckillOrderService{
 
     private final SeckillActivityMapper activityMapper;
     private final InventoryService inventoryService;
     private final ProductMapper productMapper;
     private final OrderMapper orderMapper;
+    private final OrderTimeoutProducer orderTimeoutProducer;
 
-    public SeckillOrderServiceImpl(SeckillActivityMapper activityMapper, InventoryService inventoryService, ProductMapper productMapper, OrderMapper orderMapper) {
-        this.activityMapper = activityMapper;
-        this.inventoryService = inventoryService;
-        this.productMapper = productMapper;
-        this.orderMapper = orderMapper;
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -54,8 +57,6 @@ public class SeckillOrderServiceImpl implements SeckillOrderService{
         if (activityUpdated == 0) {
             throw new BusinessException(ErrorCode.SECKILL_SOLD_OUT);
         }
-
-        inventoryService.deductStock(activity.getProductId(),1);
 
         Product product = productMapper.selectById(activity.getProductId());
 
@@ -74,17 +75,20 @@ public class SeckillOrderServiceImpl implements SeckillOrderService{
         // Claim: EveryOne 1 quantity
         order.setQuantity(1);
         order.setAmount(activity.getSeckillPrice());
-        order.setStatus(0);
-
+        order.setStatus(OrderStatus.WAIT_PAY.getCode());
+        order.setExpireTime(LocalDateTime.now().plusMinutes(OrderConstants.PAYMENT_TIMEOUT_MINUTES));
         try {
             int inserted = orderMapper.insert(order);
             if(inserted != 1){
                 throw new BusinessException(ErrorCode.ORDER_CREATE_FAILED);
             }
-            return order.getId();
         }catch (DuplicateKeyException e){
             throw new BusinessException(ErrorCode.SECKILL_DUPLICATE_ORDER);
         }
+        inventoryService.reserveStock(order.getId(),activity.getProductId(),1);
+        Long orderId = order.getId();
+        AfterCommitExecutor.execute(()->orderTimeoutProducer.send(orderId));
+        return order.getId();
     }
 
     @Override

@@ -47,3 +47,14 @@ mall:
   jwt:
     secret: "MallX-Development-Secret-Key-Change-Me-2026-At-Least-32-Bytes"
     expiration: 7200000
+  seckill:
+    rate-limit:
+      enabled: true
+
+      user:
+        capacity: 5
+        refill-rate: 2
+
+      ip:
+        capacity: 30
+        refill-rate: 10

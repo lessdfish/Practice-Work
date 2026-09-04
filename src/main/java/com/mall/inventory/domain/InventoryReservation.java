@@ -8,25 +8,27 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * ClassName:ProductInventory
+ * ClassName:InventoryReservation
  * Package:com.mall.inventory.domain
  * Description:
  *
  * @Author:lyp
- * @Create:2026/8/29 - 22:02
+ * @Create:2026/9/4 - 16:11
  * @Version: v1.0
  *
  */
 @Data
-@TableName("product_inventory")
-public class ProductInventory {
+@TableName("inventory_reservation")
+public class InventoryReservation {
+
     @TableId(type = IdType.AUTO)
     private Long id;
+
+    private Long orderId;
     private Long productId;
-    private Integer availableStock;
-    private Integer lockedStock;
-    private Integer soldStock;
-    private Long version;
+    private Integer quantity;
+    private Integer status;
+
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

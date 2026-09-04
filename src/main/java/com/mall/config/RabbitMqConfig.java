@@ -30,6 +30,60 @@ public class RabbitMqConfig {
         return new DirectExchange(RabbitMqConstants.SECKILL_DEAD_EXCHANGE, true, false);
     }
 
+    @Bean
+    public DirectExchange orderExchange(){
+        return new DirectExchange(RabbitMqConstants.ORDER_EXCHANGE,true,false);
+    }
+
+    @Bean
+    public Queue orderTimeoutDelayQueue(){
+        return QueueBuilder.durable(RabbitMqConstants.ORDER_TIMEOUT_DELAY_QUEUE)
+                .ttl(30 * 60 * 1000)
+                .deadLetterExchange(RabbitMqConstants.ORDER_EXCHANGE)
+                .deadLetterRoutingKey(RabbitMqConstants.ORDER_TIMEOUT_KEY)
+                .build();
+    }
+
+    @Bean
+    public Queue orderTimeoutQueue(){
+        return QueueBuilder.durable(RabbitMqConstants.ORDER_TIMEOUT_QUEUE).build();
+    }
+
+    @Bean("orderPaidQueue")
+    public Queue orderPaidQueue(){
+        return QueueBuilder.durable(RabbitMqConstants.ORDER_PAID_QUEUE).build();
+    }
+
+    @Bean
+    public Binding orderPaidBinding(
+            @Qualifier("orderPaidQueue") Queue queue,
+            @Qualifier("orderExchange") DirectExchange exchange
+    ) {
+        return BindingBuilder.bind(queue)
+                .to(exchange)
+                .with(RabbitMqConstants.ORDER_PAID_KEY);
+    }
+    @Bean
+    public Binding orderTimeoutDelayBinding(
+            @Qualifier("orderTimeoutDelayQueue") Queue queue,
+            @Qualifier("orderExchange") DirectExchange exchange
+    ){
+        return BindingBuilder.bind(queue)
+                .to(exchange)
+                .with(RabbitMqConstants.ORDER_TIMEOUT_DELAY_KEY);
+    }
+
+    @Bean
+    public Binding orderTimeoutBinding(
+            @Qualifier("orderTimeoutQueue") Queue queue,
+            @Qualifier("orderExchange") DirectExchange exchange
+    ){
+        return BindingBuilder.bind(queue)
+                .to(exchange)
+                .with(RabbitMqConstants.ORDER_TIMEOUT_KEY);
+    }
+
+
     @Bean("seckillOrderQueue")
     public Queue seckillOrderQueue() {
         return QueueBuilder

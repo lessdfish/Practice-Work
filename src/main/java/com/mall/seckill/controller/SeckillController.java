@@ -1,5 +1,6 @@
 package com.mall.seckill.controller;
 
+import com.mall.common.ratelimit.SeckillRateLimit;
 import com.mall.common.result.Result;
 import com.mall.order.domain.Order;
 import com.mall.seckill.dto.SeckillResultResponse;
@@ -32,6 +33,7 @@ public class SeckillController {
     }
 
     @PostMapping("/{activityId}")
+    @SeckillRateLimit
     public Result<SeckillSubmitResponse> seckill(@PathVariable Long activityId,
                                                  @AuthenticationPrincipal MallUserDetails currentUser){
         return Result.success(seckillService.seckill(activityId,currentUser.getUserId()));

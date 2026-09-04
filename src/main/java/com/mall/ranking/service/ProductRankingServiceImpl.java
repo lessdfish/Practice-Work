@@ -6,8 +6,11 @@ import com.mall.common.redis.RedisLockService;
 import com.mall.product.domain.Product;
 import com.mall.product.service.ProductService;
 import com.mall.ranking.dto.ProductRankingResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -25,19 +28,33 @@ import java.util.Set;
  *
  */
 @Service
+@RequiredArgsConstructor
 public class ProductRankingServiceImpl implements ProductRankingService{
     private final StringRedisTemplate stringRedisTemplate;
     private final ProductService productService;
+    private static final DefaultRedisScript<Long> PAID_RANKING_SCRIPT;
 
-    public ProductRankingServiceImpl(StringRedisTemplate stringRedisTemplate, ProductService productService) {
-        this.stringRedisTemplate = stringRedisTemplate;
-        this.productService = productService;
+    static {
+        PAID_RANKING_SCRIPT = new DefaultRedisScript<>();
+        PAID_RANKING_SCRIPT.setLocation(
+                new ClassPathResource(
+                        "scripts/order_paid_ranking.lua"
+                )
+        );
+        PAID_RANKING_SCRIPT.setResultType(Long.class);
     }
-
     @Override
-    public void increaseOrderQuantity(Long productId, Integer quantity) {
-        stringRedisTemplate.opsForZSet().incrementScore(RedisKeyConstants.PRODUCT_ORDER_RANKING,
-                String.valueOf(productId),quantity.doubleValue());
+    public void increasePaidQuantity(String eventId,Long productId, Integer quantity) {
+        Long result = stringRedisTemplate.execute(PAID_RANKING_SCRIPT,
+                List.of(RedisKeyConstants.PAID_RANKING,
+                        RedisKeyConstants.paidRankingEvent(eventId)),
+                String.valueOf(productId),
+                String.valueOf(quantity),
+                String.valueOf(7 * 24 * 60 * 60));
+
+        if (result == null) {
+            throw new IllegalStateException("更新支付销量排行榜失败");
+        }
     }
 
     @Override

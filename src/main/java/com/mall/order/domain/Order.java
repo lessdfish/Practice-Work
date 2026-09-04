@@ -29,6 +29,7 @@ public class Order {
     private Integer quantity;
     private BigDecimal amount;
     private Integer status;
+    private LocalDateTime expireTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

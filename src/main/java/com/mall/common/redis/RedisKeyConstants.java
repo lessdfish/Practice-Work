@@ -26,7 +26,19 @@ public final class RedisKeyConstants {
     public static final String SECKILL_OUTBOX_STREAM = "mall:seckill:outbox";
     public static final String SECKILL_OUTBOX_STREAM_REGISTRY = "mall:seckill:outbox:streams";
     public static final String SECKILL_OUTBOX_GROUP = "mall-seckill-relay-group";
+    public static final String PAID_RANKING = "mall:ranking:{paid}:products";
 
+    public static String seckillUserRateLimit(Long userId){
+        return "mall:ratelimit:seckill:user:" + userId;
+    }
+
+    public static String seckillIpRateLimit(String ip){
+        return "mall:ratelimit:seckill:ip:" + ip;
+    }
+
+    public static String paidRankingEvent(String eventId){
+        return "mall:ranking:{paid}:event:"+ eventId;
+    }
     public static String productDetail(Long productId){
         return PRODUCT_DETAIL + productId;
     }
